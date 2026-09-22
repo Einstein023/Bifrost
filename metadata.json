@@ -1,6 +1,6 @@
 {
   "name": "BIFROST - Digital Conference Pass & Agenda",
-  "description": "Streamlined dark-mode summit companion app with high-contrast digital passes, peer QR contact swap, live interactive agenda, and organizer console.",
+  "description": "Streamlined dark-mode summit companion app featuring real-time conference friend proximity alerts, peer QR contact swaps, interactive agenda, and organizer console.",
   "requestFramePermissions": [
     "camera"
   ],

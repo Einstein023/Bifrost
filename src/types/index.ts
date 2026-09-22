@@ -15,10 +15,26 @@ export interface Attendee {
   bio: string;
   avatar: string;
   location: string;
+  currentRoom?: string; // e.g. "Main Stage", "Workshop A", "Room B2", "Atrium Sky Lounge"
+  currentSessionId?: string;
   qrPayload: string;
   checkedIn: boolean;
   notes?: string;
   connectedAt?: string;
+  isFriend?: boolean;
+  friendStatus?: 'none' | 'pending_sent' | 'pending_received' | 'friends' | 'accepted';
+  statusMessage?: string; // e.g. "Front row at keynote", "Grabbing coffee at Atrium"
+  lastPing?: string;
+}
+
+export interface UserAccount {
+  user: Attendee;
+  password?: string;
+  bookmarkedSessionIds: string[];
+  connections: Attendee[]; // friends & saved contacts
+  pendingReceivedRequests?: Attendee[];
+  pendingSentRequests?: Attendee[];
+  notifications: AppNotification[];
 }
 
 export interface SessionSpeaker {
@@ -37,8 +53,8 @@ export interface Session {
   day: 'Day 1' | 'Day 2';
   dateStr: string;
   timeDisplay: string;
-  startTime: string; // '10:00 AM'
-  endTime: string;   // '11:15 AM'
+  startTime: string;
+  endTime: string;
   room: string;
   description: string;
   speaker: SessionSpeaker;
@@ -51,7 +67,18 @@ export interface Session {
   tags: string[];
 }
 
-export type NotificationType = 'critical' | 'venue' | 'connection' | 'info';
+export type NotificationType = 
+  | 'critical' 
+  | 'venue' 
+  | 'connection' 
+  | 'friend_same_room' 
+  | 'friend_joined_venue' 
+  | 'friend_arrival'
+  | 'friend_request' 
+  | 'friend_accepted' 
+  | 'friend_ping' 
+  | 'peer_wave'
+  | 'info';
 
 export interface AppNotification {
   id: string;
@@ -62,8 +89,10 @@ export interface AppNotification {
   timeAgo: string;
   isRead: boolean;
   actionLabel?: string;
-  actionType?: 'view_session' | 'view_room' | 'connection_request' | 'info';
+  actionType?: 'view_session' | 'view_room' | 'connection_request' | 'friend_wave' | 'view_friend' | 'info';
   sessionId?: string;
+  friendId?: string;
+  roomName?: string;
   sender?: {
     id: string;
     name: string;
@@ -72,6 +101,7 @@ export interface AppNotification {
     avatar: string;
     linkedin?: string;
     email?: string;
+    room?: string;
   };
 }
 

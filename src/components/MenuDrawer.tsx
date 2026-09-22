@@ -1,4 +1,5 @@
 import React from 'react';
+import { Attendee } from '../types';
 import { sound } from '../utils/audio';
 
 interface MenuDrawerProps {
@@ -6,6 +7,9 @@ interface MenuDrawerProps {
   onClose: () => void;
   onNavigate: (tab: string) => void;
   onOpenPass: () => void;
+  currentUser: Attendee | null;
+  onOpenAuthModal: (mode: 'signin' | 'register') => void;
+  onSignOut: () => void;
 }
 
 export const MenuDrawer: React.FC<MenuDrawerProps> = ({
@@ -13,6 +17,9 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
   onClose,
   onNavigate,
   onOpenPass,
+  currentUser,
+  onOpenAuthModal,
+  onSignOut,
 }) => {
   if (!isOpen) return null;
 
@@ -44,8 +51,49 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
             </button>
           </div>
 
+          {/* Current User Card */}
+          {currentUser ? (
+            <div className="bg-[#1A1A1B] rounded-2xl p-4 border border-[#2D2D2E] flex items-center gap-3">
+              <img
+                src={currentUser.avatar}
+                alt={currentUser.name}
+                className="w-11 h-11 rounded-xl object-cover border border-[#F6F930]/40 flex-shrink-0"
+              />
+              <div className="truncate flex-1">
+                <p className="font-bold text-white text-sm truncate">{currentUser.name}</p>
+                <p className="font-mono text-[10px] text-[#F6F930]">{currentUser.passType}</p>
+                <p className="font-mono text-[9px] text-[#8E9192] truncate">{currentUser.id}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#1A1A1B] rounded-2xl p-4 border border-[#2D2D2E] text-center space-y-2">
+              <p className="text-xs text-[#C4C7C8]">Not signed in</p>
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenAuthModal('signin');
+                }}
+                className="w-full py-2 bg-[#F6F930] text-[#0F0F10] rounded-xl font-mono text-xs font-bold uppercase"
+              >
+                Sign In / Claim Pass
+              </button>
+            </div>
+          )}
+
           {/* Quick Navigation Links */}
           <nav className="space-y-1.5 font-mono text-xs">
+            <button
+              onClick={() => {
+                sound.playClick();
+                onNavigate('landing');
+                onClose();
+              }}
+              className="w-full text-left p-3 rounded-xl hover:bg-[#1A1A1B] text-white flex items-center gap-3 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[18px] text-[#F6F930]">home</span>
+              SUMMIT HOME (LANDING)
+            </button>
+
             <button
               onClick={() => {
                 sound.playClick();
@@ -55,7 +103,7 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
               className="w-full text-left p-3 rounded-xl hover:bg-[#1A1A1B] text-white flex items-center gap-3 transition-colors"
             >
               <span className="material-symbols-outlined text-[18px]">qr_code_2</span>
-              DASHBOARD
+              DASHBOARD & PASS
             </button>
 
             <button
@@ -125,9 +173,32 @@ export const MenuDrawer: React.FC<MenuDrawerProps> = ({
           </div>
         </div>
 
-        {/* Footer info */}
-        <div className="pt-6 border-t border-[#2D2D2E] space-y-2 text-center">
-          <p className="font-mono text-[10px] text-[#8E9192] uppercase">
+        {/* Footer info & Account actions */}
+        <div className="pt-6 border-t border-[#2D2D2E] space-y-3">
+          {currentUser && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  onClose();
+                  onOpenAuthModal('signin');
+                }}
+                className="flex-1 py-2 bg-[#201F20] hover:bg-[#2A2A2B] text-[#C4C7C8] hover:text-white rounded-xl font-mono text-[11px] uppercase transition-colors"
+              >
+                Switch User
+              </button>
+              <button
+                onClick={() => {
+                  onClose();
+                  onSignOut();
+                }}
+                className="px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl font-mono text-[11px] uppercase transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          )}
+
+          <p className="font-mono text-[10px] text-[#8E9192] uppercase text-center">
             Bifrost Engine v2.4 • Offline Ready
           </p>
         </div>

@@ -6,8 +6,10 @@ import { sound } from '../utils/audio';
 interface DashboardViewProps {
   user: Attendee;
   sessions: Session[];
+  connections: Attendee[];
   onOpenSession: (session: Session) => void;
   onNavigateToSchedule: () => void;
+  onNavigateToNetwork: () => void;
   onOpenPassModal: () => void;
   onOpenScanner: () => void;
   onToggleBookmark: (sessionId: string) => void;
@@ -16,8 +18,10 @@ interface DashboardViewProps {
 export const DashboardView: React.FC<DashboardViewProps> = ({
   user,
   sessions,
+  connections,
   onOpenSession,
   onNavigateToSchedule,
+  onNavigateToNetwork,
   onOpenPassModal,
   onOpenScanner,
   onToggleBookmark,
@@ -25,6 +29,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Find currently live and next upcoming sessions
   const liveSession = sessions.find((s) => s.isLive) || sessions[0];
   const nextSession = sessions.find((s) => s.id !== liveSession?.id && s.day === 'Day 1') || sessions[1];
+
+  const userRoom = user.currentRoom || 'Main Stage';
+  const friendsInSameRoom = connections.filter(
+    (c) => c.currentRoom && c.currentRoom.toLowerCase() === userRoom.toLowerCase()
+  );
 
   return (
     <div className="w-full max-w-6xl mx-auto px-4 md:px-8 py-6 md:py-10 space-y-12">
@@ -181,28 +190,122 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           )}
 
-          {/* Network Connection Quick status */}
-          <div className="bg-[#1A1A1B]/60 p-5 rounded-2xl border border-[#2D2D2E] flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#201F20] flex items-center justify-center text-[#F6F930]">
-                <span className="material-symbols-outlined text-lg">bolt</span>
+          {/* Conference Friends Live Radar Widget */}
+          <div className="bg-[#1A1A1B] p-5 md:p-6 rounded-2xl md:rounded-[24px] border border-[#2D2D2E] hover:border-[#444748] transition-all space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-[#F6F930]/10 border border-[#F6F930]/30 flex items-center justify-center text-[#F6F930]">
+                  <span className="material-symbols-outlined text-lg">group</span>
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white tracking-tight flex items-center gap-1.5">
+                    Friends in Summit
+                    <span className="font-mono text-[10px] bg-[#201F20] text-[#F6F930] px-2 py-0.5 rounded-full border border-[#2D2D2E]">
+                      {connections.length} Online
+                    </span>
+                  </h4>
+                  <p className="font-mono text-[10px] text-[#8E9192]">
+                    Real-time proximity & room alerts
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="font-mono text-[10px] text-[#8E9192] uppercase tracking-wider">
-                  PEER NETWORKING
-                </p>
-                <p className="text-xs text-white font-medium">
-                  Ready to exchange cards via QR code
-                </p>
-              </div>
+
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  onNavigateToNetwork();
+                }}
+                className="font-mono text-[10px] text-[#C4C7C8] hover:text-[#F6F930] uppercase tracking-wider flex items-center gap-1 transition-colors"
+              >
+                RADAR HUB →
+              </button>
             </div>
 
-            <button
-              onClick={onOpenScanner}
-              className="font-mono text-[11px] uppercase tracking-wider text-[#F6F930] bg-[#F6F930]/10 px-3 py-1.5 rounded-full border border-[#F6F930]/30 hover:bg-[#F6F930] hover:text-[#0F0F10] transition-all"
-            >
-              Scan Peer
-            </button>
+            {/* Same room alert badge if friends are in user's room */}
+            {friendsInSameRoom.length > 0 && (
+              <div className="bg-[#F6F930]/10 border border-[#F6F930]/40 rounded-xl p-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#F6F930] text-[18px]">bolt</span>
+                  <p className="text-xs text-white">
+                    <strong className="text-[#F6F930]">{friendsInSameRoom.length} {friendsInSameRoom.length === 1 ? 'friend is' : 'friends are'}</strong> in your session right now! ({friendsInSameRoom.map(f => f.name.split(' ')[0]).join(', ')})
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    sound.playWave();
+                    alert(`Waved to ${friendsInSameRoom.map(f => f.name).join(' & ')}!`);
+                  }}
+                  className="px-2.5 py-1 bg-[#F6F930] text-[#0F0F10] font-mono text-[10px] font-bold rounded-lg uppercase whitespace-nowrap active:scale-95"
+                >
+                  Wave 👋
+                </button>
+              </div>
+            )}
+
+            {/* List of active friends with current location */}
+            <div className="space-y-2">
+              {connections.slice(0, 3).map((friend) => {
+                const isSame = friend.currentRoom && friend.currentRoom.toLowerCase() === userRoom.toLowerCase();
+                return (
+                  <div
+                    key={friend.id}
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-[#201F20]/60 border border-[#2D2D2E]/80 text-xs"
+                  >
+                    <div className="flex items-center gap-2.5 truncate">
+                      <img
+                        src={friend.avatar}
+                        alt={friend.name}
+                        className="w-7 h-7 rounded-lg object-cover border border-[#444748] flex-shrink-0"
+                      />
+                      <div className="truncate">
+                        <span className="font-semibold text-white truncate block">
+                          {friend.name}
+                        </span>
+                        <span className="font-mono text-[10px] text-[#8E9192]">
+                          {friend.company}
+                        </span>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`font-mono text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 flex items-center gap-1 ${
+                        isSame
+                          ? 'bg-[#F6F930] text-[#0F0F10] font-bold'
+                          : 'bg-[#18181A] text-[#4ade80] border border-[#4ade80]/30'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[10px]">
+                        {isSame ? 'bolt' : 'location_on'}
+                      </span>
+                      {friend.currentRoom || 'In Summit'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  onNavigateToNetwork();
+                }}
+                className="flex-1 py-2 rounded-xl bg-[#201F20] hover:bg-[#2A2A2B] text-white border border-[#444748] font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[15px] text-[#F6F930]">person_add</span>
+                + Add Friends
+              </button>
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  onOpenScanner();
+                }}
+                className="flex-1 py-2 rounded-xl bg-white hover:bg-[#F6F930] text-[#0F0F10] font-mono text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <span className="material-symbols-outlined text-[15px]">qr_code_scanner</span>
+                Scan Badge
+              </button>
+            </div>
           </div>
         </div>
       </div>

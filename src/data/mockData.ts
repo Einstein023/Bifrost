@@ -1,4 +1,4 @@
-import { Attendee, Session, AppNotification, ScanRecord, VenueCapacity } from '../types';
+import { Attendee, Session, AppNotification, ScanRecord, VenueCapacity, UserAccount } from '../types';
 
 export const CURRENT_USER: Attendee = {
   id: '#BF-8492',
@@ -14,9 +14,12 @@ export const CURRENT_USER: Attendee = {
   twitter: '@alexmercer_ai',
   bio: 'Spearheading autonomous infrastructure and real-time distributed neural networks at Nexus Corp. Focus on edge compute and generative architecture.',
   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-  location: 'Main Hall Atrium',
+  location: 'Main Stage (Row 4)',
+  currentRoom: 'Main Stage',
+  currentSessionId: 'ses-1',
   qrPayload: 'BIFROST_USER:#BF-8492:Alex Mercer:Nexus Corp:VIP:alex.mercer@nexuscorp.io',
   checkedIn: true,
+  statusMessage: 'Attending Keynote in Main Stage',
 };
 
 export const INITIAL_SESSIONS: Session[] = [
@@ -48,7 +51,7 @@ export const INITIAL_SESSIONS: Session[] = [
   },
   {
     id: 'ses-2',
-    title: 'Ethics in Automated Design',
+    title: 'Ethics in Automated Design & Governance',
     track: 'Design & Ethics',
     sessionType: 'PANEL',
     day: 'Day 1',
@@ -180,12 +183,55 @@ export const INITIAL_SESSIONS: Session[] = [
 
 export const INITIAL_NOTIFICATIONS: AppNotification[] = [
   {
+    id: 'notif-fr-1',
+    title: 'Friend In Same Session!',
+    message: 'Sarah Chen is also attending "The Future of Generative Architecture" in Main Stage right now! Look for her in front rows.',
+    type: 'friend_same_room',
+    timestamp: new Date().toISOString(),
+    timeAgo: 'JUST NOW',
+    isRead: false,
+    actionLabel: 'WAVE TO SARAH',
+    actionType: 'friend_wave',
+    friendId: 'usr-101',
+    roomName: 'Main Stage',
+    sessionId: 'ses-1',
+    sender: {
+      id: 'usr-101',
+      name: 'Sarah Chen',
+      role: 'Principal UX Director',
+      company: 'Vector Labs',
+      avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAbx_-qxd8_WEYG5ExDRJ2uV-8bWvKFcQTzNyVKoLOI46OTo1fjmKs9Mc63z6quJPwtb_7npFxVawpGLL1ExoN_OEI47iao6vGq0w1JFGLn_T0G1GZlEDo5yDVn1GnmqazBzqGwCgfegFMLbLbsRj9HdUEcqHsImYP5GihGJ0ThmwloAre9apOxreh6le3gQQGpgKpdL26KUM9UI8SAcH4yNNOL9V_hx0en0wtHjqcw4mcG2FcAo-QVmQ',
+      room: 'Main Stage',
+    },
+  },
+  {
+    id: 'notif-fr-2',
+    title: 'Friend Checked In',
+    message: 'Marcus Vance just arrived at BIFROST Summit and checked in at Main Stage.',
+    type: 'friend_joined_venue',
+    timestamp: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+    timeAgo: '4m AGO',
+    isRead: false,
+    actionLabel: 'SAY HELLO',
+    actionType: 'friend_wave',
+    friendId: 'usr-102',
+    roomName: 'Main Stage',
+    sender: {
+      id: 'usr-102',
+      name: 'Marcus Vance',
+      role: 'Head of AI Governance',
+      company: 'Aetheria Protocol',
+      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
+      room: 'Main Stage',
+    },
+  },
+  {
     id: 'notif-1',
     title: 'Session Starting Soon',
     message: 'Your session starts in 10 mins. Please proceed to Main Stage.',
     type: 'critical',
     timestamp: new Date().toISOString(),
-    timeAgo: 'JUST NOW',
+    timeAgo: '8m AGO',
     isRead: false,
     actionLabel: 'VIEW SESSION',
     actionType: 'view_session',
@@ -196,36 +242,36 @@ export const INITIAL_NOTIFICATIONS: AppNotification[] = [
     title: 'Venue Update',
     message: 'Venue update: Workshop B has been moved to Hall 2.',
     type: 'venue',
-    timestamp: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-    timeAgo: '12m AGO',
+    timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(),
+    timeAgo: '15m AGO',
     isRead: false,
     actionLabel: 'VIEW LOCATION',
     actionType: 'view_room'
   },
   {
     id: 'notif-3',
-    title: 'New Connection',
-    message: 'New connection request from Sarah Chen.',
-    type: 'connection',
-    timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
-    timeAgo: '1h AGO',
+    title: 'New Friend Request',
+    message: 'Liam Davies wants to add you as a conference friend.',
+    type: 'friend_request',
+    timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    timeAgo: '45m AGO',
     isRead: false,
     actionLabel: 'ACCEPT',
     actionType: 'connection_request',
     sender: {
-      id: 'usr-101',
-      name: 'Sarah Chen',
-      role: 'Principal UX Director',
-      company: 'Vector Labs',
-      avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAbx_-qxd8_WEYG5ExDRJ2uV-8bWvKFcQTzNyVKoLOI46OTo1fjmKs9Mc63z6quJPwtb_7npFxVawpGLL1ExoN_OEI47iao6vGq0w1JFGLn_T0G1GZlEDo5yDVn1GnmqazBzqGwCgfegFMLbLbsRj9HdUEcqHsImYP5GihGJ0ThmwloAre9apOxreh6le3gQQGpgKpdL26KUM9UI8SAcH4yNNOL9V_hx0en0wtHjqcw4mcG2FcAo-QVmQ',
-      linkedin: 'https://linkedin.com/in/sarah-chen-design',
-      email: 'sarah.chen@vectorlabs.co'
+      id: 'usr-104',
+      name: 'Liam Davies',
+      role: 'Chief Design Officer',
+      company: 'Dimension Interactive',
+      avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80',
+      linkedin: 'https://linkedin.com/in/liam-davies-xr',
+      email: 'liam@dimension.design'
     }
   },
   {
     id: 'notif-4',
     title: 'Registration Confirmed',
-    message: 'Your registration for BIFROST summit is complete.',
+    message: 'Your VIP pass for BIFROST summit is activated with offline contact swap enabled.',
     type: 'info',
     timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
     timeAgo: 'YESTERDAY',
@@ -249,8 +295,13 @@ export const PEER_DIRECTORY: Attendee[] = [
     bio: 'Pioneering human interaction systems for neural workspaces, high-density HUDs, and ambient spatial intelligence.',
     avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAbx_-qxd8_WEYG5ExDRJ2uV-8bWvKFcQTzNyVKoLOI46OTo1fjmKs9Mc63z6quJPwtb_7npFxVawpGLL1ExoN_OEI47iao6vGq0w1JFGLn_T0G1GZlEDo5yDVn1GnmqazBzqGwCgfegFMLbLbsRj9HdUEcqHsImYP5GihGJ0ThmwloAre9apOxreh6le3gQQGpgKpdL26KUM9UI8SAcH4yNNOL9V_hx0en0wtHjqcw4mcG2FcAo-QVmQ',
     location: 'Main Stage Atrium',
+    currentRoom: 'Main Stage',
+    currentSessionId: 'ses-1',
     qrPayload: 'BIFROST_USER:usr-101:Sarah Chen:Vector Labs:VIP:sarah.chen@vectorlabs.co',
     checkedIn: true,
+    isFriend: true,
+    friendStatus: 'friends',
+    statusMessage: 'Front row at Generative Architecture keynote!',
     connectedAt: '1h ago',
     notes: 'Met during morning keynote. Interested in collaborating on edge latency UI feedback.'
   },
@@ -268,9 +319,14 @@ export const PEER_DIRECTORY: Attendee[] = [
     twitter: '@marcus_governance',
     bio: 'Authoring policy frameworks and verifiable zero-knowledge attestations for autonomous agent architectures.',
     avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-    location: 'Speaker Lounge B',
+    location: 'Main Stage (Row 4)',
+    currentRoom: 'Main Stage',
+    currentSessionId: 'ses-1',
     qrPayload: 'BIFROST_USER:usr-102:Marcus Vance:Aetheria Protocol:SPEAKER:m.vance@aetheria.org',
     checkedIn: true,
+    isFriend: true,
+    friendStatus: 'friends',
+    statusMessage: 'In keynote session taking notes on AI safety.',
     connectedAt: 'Yesterday',
     notes: 'Speaker on Ethics panel. Connect regarding EU AI Act compliance checks.'
   },
@@ -285,9 +341,16 @@ export const PEER_DIRECTORY: Attendee[] = [
     linkedin: 'https://linkedin.com/in/elena-rostova-mit',
     bio: 'Investigating dynamic topological neural representations and automated construction systems.',
     avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAbx_-qxd8_WEYG5ExDRJ2uV-8bWvKFcQTzNyVKoLOI46OTo1fjmKs9Mc63z6quJPwtb_7npFxVawpGLL1ExoN_OEI47iao6vGq0w1JFGLn_T0G1GZlEDo5yDVn1GnmqazBzqGwCgfegFMLbLbsRj9HdUEcqHsImYP5GihGJ0ThmwloAre9apOxreh6le3gQQGpgKpdL26KUM9UI8SAcH4yNNOL9V_hx0en0wtHjqcw4mcG2FcAo-QVmQ',
-    location: 'Keynote Green Room',
+    location: 'Main Stage Podium',
+    currentRoom: 'Main Stage',
+    currentSessionId: 'ses-1',
     qrPayload: 'BIFROST_USER:usr-103:Dr. Elena Rostova:MIT Media Lab:SPEAKER:e.rostova@media.mit.edu',
-    checkedIn: true
+    checkedIn: true,
+    isFriend: false,
+    friendStatus: 'none',
+    statusMessage: 'Presenting Generative Architecture Keynote!',
+    connectedAt: '2 days ago',
+    notes: 'Keynote presenter on Generative Architecture.'
   },
   {
     id: 'usr-104',
@@ -301,9 +364,13 @@ export const PEER_DIRECTORY: Attendee[] = [
     github: 'https://github.com/liamdavies',
     bio: 'Designing next-generation spatial computing interfaces for engineering workflows.',
     avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80',
-    location: 'Demo Booth 4',
+    location: 'Atrium Sky Lounge',
+    currentRoom: 'Atrium Sky Lounge',
     qrPayload: 'BIFROST_USER:usr-104:Liam Davies:Dimension Interactive:VIP:liam@dimension.design',
-    checkedIn: true
+    checkedIn: true,
+    isFriend: false,
+    friendStatus: 'pending_received',
+    statusMessage: 'Having coffee at the Atrium Sky Lounge. Open to meet!'
   },
   {
     id: 'usr-105',
@@ -317,8 +384,90 @@ export const PEER_DIRECTORY: Attendee[] = [
     bio: 'Scaling autonomous multi-agent pipelines for tier-1 telecommunications and cloud grids.',
     avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80',
     location: 'VIP Sky Lounge',
+    currentRoom: 'Atrium Sky Lounge',
     qrPayload: 'BIFROST_USER:usr-105:Sophia Zhang:HiveMind Systems:VIP:sophia@hivemind.systems',
-    checkedIn: true
+    checkedIn: true,
+    isFriend: true,
+    friendStatus: 'friends',
+    statusMessage: 'Preparing multi-agent swarm afternoon demo.'
+  },
+  {
+    id: 'usr-106',
+    name: 'Kaito Tanaka',
+    role: 'VP of Hardware Architecture',
+    company: 'Synapse Silicon',
+    accessLevel: 'Speaker',
+    passType: 'SPEAKER',
+    email: 'kaito.tanaka@synapse.tech',
+    linkedin: 'https://linkedin.com/in/kaito-tanaka-chip',
+    bio: 'Pioneering ultra low-power neuromorphic edge compute silicon and hardware compilers.',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
+    location: 'Workshop A (Lab Bench)',
+    currentRoom: 'Workshop A',
+    currentSessionId: 'ses-3',
+    qrPayload: 'BIFROST_USER:usr-106:Kaito Tanaka:Synapse Silicon:SPEAKER:kaito.tanaka@synapse.tech',
+    checkedIn: true,
+    isFriend: false,
+    friendStatus: 'none',
+    statusMessage: 'Setting up RISC-V edge test benches for workshop.'
+  },
+  {
+    id: 'usr-107',
+    name: 'Maya Lin',
+    role: 'Staff ML Engineer',
+    company: 'Nexus Corp',
+    accessLevel: 'General',
+    passType: 'ALL-ACCESS',
+    email: 'maya.lin@nexuscorp.io',
+    linkedin: 'https://linkedin.com/in/maya-lin-nexus',
+    bio: 'Colleague at Nexus Corp working on edge model quantization and low-power inference.',
+    avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80',
+    location: 'Room B2',
+    currentRoom: 'Room B2',
+    currentSessionId: 'ses-2',
+    qrPayload: 'BIFROST_USER:usr-107:Maya Lin:Nexus Corp:ALL-ACCESS:maya.lin@nexuscorp.io',
+    checkedIn: true,
+    isFriend: false,
+    friendStatus: 'none',
+    statusMessage: 'Nexus teammate attending Ethics in AI session.'
+  },
+  {
+    id: 'usr-108',
+    name: 'David Sterling',
+    role: 'Managing Partner',
+    company: 'Vanguard DeepTech',
+    accessLevel: 'VIP',
+    passType: 'VIP ACCESS',
+    email: 'd.sterling@vanguard.vc',
+    linkedin: 'https://linkedin.com/in/david-sterling-vc',
+    bio: 'Investing in foundational intelligence, robotics hardware, and generative infrastructure.',
+    avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80',
+    location: 'Atrium Sky Lounge',
+    currentRoom: 'Atrium Sky Lounge',
+    qrPayload: 'BIFROST_USER:usr-108:David Sterling:Vanguard DeepTech:VIP:d.sterling@vanguard.vc',
+    checkedIn: true,
+    isFriend: false,
+    friendStatus: 'none',
+    statusMessage: 'Meeting technical founders in the Sky Lounge.'
+  },
+  {
+    id: 'usr-109',
+    name: 'Priya Patel',
+    role: 'Director of Platform Engineering',
+    company: 'Cerebral AI',
+    accessLevel: 'General',
+    passType: 'ALL-ACCESS',
+    email: 'priya@cerebral.ai',
+    linkedin: 'https://linkedin.com/in/priya-patel-cloud',
+    bio: 'Specializing in resilient Kubernetes operator mesh and high-throughput vector indexing.',
+    avatar: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=400&q=80',
+    location: 'Exhibition Hall Booth 12',
+    currentRoom: 'Exhibition Hall',
+    qrPayload: 'BIFROST_USER:usr-109:Priya Patel:Cerebral AI:ALL-ACCESS:priya@cerebral.ai',
+    checkedIn: true,
+    isFriend: false,
+    friendStatus: 'none',
+    statusMessage: 'Demoing token streaming proxies at booth 12.'
   }
 ];
 
@@ -381,4 +530,85 @@ export const INITIAL_SCANS: ScanRecord[] = [
     status: 'GRANTED',
     location: 'Main Entrance Alpha'
   }
+];
+
+export const INITIAL_ACCOUNTS: UserAccount[] = [
+  {
+    user: CURRENT_USER,
+    password: 'password123',
+    bookmarkedSessionIds: ['ses-1', 'ses-2', 'ses-6'],
+    connections: [PEER_DIRECTORY[0], PEER_DIRECTORY[1], PEER_DIRECTORY[4]],
+    pendingReceivedRequests: [PEER_DIRECTORY[3]],
+    pendingSentRequests: [],
+    notifications: INITIAL_NOTIFICATIONS,
+  },
+  {
+    user: PEER_DIRECTORY[0], // Sarah Chen
+    password: 'password123',
+    bookmarkedSessionIds: ['ses-2', 'ses-5'],
+    connections: [CURRENT_USER, PEER_DIRECTORY[1]],
+    notifications: [
+      {
+        id: 'notif-sc-1',
+        title: 'Design Panel Starting',
+        message: 'Your panel "Ethics in Automated Design" begins in 30 minutes in Room B2.',
+        type: 'critical',
+        timestamp: new Date().toISOString(),
+        timeAgo: 'JUST NOW',
+        isRead: false,
+        sessionId: 'ses-2',
+      },
+    ],
+  },
+  {
+    user: PEER_DIRECTORY[1], // Marcus Vance
+    password: 'password123',
+    bookmarkedSessionIds: ['ses-2', 'ses-4', 'ses-6'],
+    connections: [CURRENT_USER],
+    notifications: [
+      {
+        id: 'notif-mv-1',
+        title: 'Speaker Briefing',
+        message: 'Please meet at Speaker Lounge B for microphone check and AV setup.',
+        type: 'venue',
+        timestamp: new Date().toISOString(),
+        timeAgo: '15m AGO',
+        isRead: false,
+      },
+    ],
+  },
+  {
+    user: PEER_DIRECTORY[2], // Dr. Elena Rostova
+    password: 'password123',
+    bookmarkedSessionIds: ['ses-1', 'ses-3'],
+    connections: [PEER_DIRECTORY[0]],
+    notifications: [
+      {
+        id: 'notif-er-1',
+        title: 'Keynote Stage Ready',
+        message: 'Main Stage telemetry is active. Audience count is currently 2,100 attendees.',
+        type: 'critical',
+        timestamp: new Date().toISOString(),
+        timeAgo: 'JUST NOW',
+        isRead: false,
+      },
+    ],
+  },
+  {
+    user: PEER_DIRECTORY[4], // Sophia Zhang
+    password: 'password123',
+    bookmarkedSessionIds: ['ses-4', 'ses-6'],
+    connections: [CURRENT_USER, PEER_DIRECTORY[0]],
+    notifications: [
+      {
+        id: 'notif-sz-1',
+        title: 'Swarm Demo Live',
+        message: 'Autonomous multi-agent swarms keynote is scheduled for 03:30 PM.',
+        type: 'info',
+        timestamp: new Date().toISOString(),
+        timeAgo: '1h AGO',
+        isRead: false,
+      },
+    ],
+  },
 ];

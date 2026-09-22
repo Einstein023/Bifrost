@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Attendee } from '../types';
+import { Attendee, UserAccount } from '../types';
 import { sound } from '../utils/audio';
 import { exportContactVCard } from '../utils/vcard';
 
@@ -8,6 +8,12 @@ interface ProfileViewProps {
   onUpdateUser: (updatedUser: Attendee) => void;
   onOpenPassModal: () => void;
   onNavigateToConsole: () => void;
+  onOpenAuthModal: (mode: 'signin' | 'register') => void;
+  onSignOut: () => void;
+  allAccounts?: UserAccount[];
+  onSwitchAccount?: (acc: UserAccount) => void;
+  bookmarkedCount?: number;
+  connectionsCount?: number;
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -15,6 +21,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onUpdateUser,
   onOpenPassModal,
   onNavigateToConsole,
+  onOpenAuthModal,
+  onSignOut,
+  allAccounts = [],
+  onSwitchAccount,
+  bookmarkedCount = 0,
+  connectionsCount = 0,
 }) => {
   const [formData, setFormData] = useState<Attendee>({ ...user });
   const [isEditing, setIsEditing] = useState(false);
@@ -35,31 +47,43 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       ...user,
       passType,
       accessLevel: (passType === 'VIP ACCESS' ? 'Alpha' : passType === 'SPEAKER' ? 'Speaker' : 'General') as any,
+      qrPayload: `BIFROST_USER:${user.id}:${user.name}:${user.company}:${passType}:${user.email}`,
     };
     setFormData(updated);
     onUpdateUser(updated);
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto px-4 md:px-8 py-6 md:py-10 space-y-8">
+    <div className="w-full max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10 space-y-8">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-[#2D2D2E] pb-6">
         <div>
           <span className="font-mono text-xs text-[#F6F930] tracking-widest uppercase block mb-1">
-            ATTENDEE SETTINGS
+            ATTENDEE IDENTITY ENGINE
           </span>
           <h2 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
             Digital Pass & Profile
           </h2>
           <p className="text-sm text-[#C4C7C8] mt-1">
-            Manage your credentials, peer contact swap card, and conference preferences.
+            Manage your credentials, personalized agenda bookmarks, and peer contact card.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
           <button
+            onClick={() => {
+              sound.playClick();
+              onOpenAuthModal('signin');
+            }}
+            className="px-4 py-2.5 bg-[#201F20] hover:bg-[#2A2A2B] text-[#C4C7C8] hover:text-white border border-[#2D2D2E] font-mono text-xs uppercase rounded-full transition-colors flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[16px]">switch_account</span>
+            Switch User
+          </button>
+
+          <button
             onClick={onOpenPassModal}
-            className="px-5 py-2.5 bg-[#F6F930] text-[#0F0F10] font-mono text-xs font-bold uppercase rounded-full hover:bg-white transition-colors flex items-center gap-2 shadow-md"
+            className="px-5 py-2.5 bg-[#F6F930] text-[#0F0F10] font-mono text-xs font-bold uppercase rounded-full hover:bg-white transition-colors flex items-center gap-2 shadow-md cursor-pointer"
           >
             <span className="material-symbols-outlined text-[16px]">qr_code</span>
             Show Pass
@@ -94,7 +118,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <p className="text-xs text-[#8E9192]">{user.company}</p>
             </div>
 
-            <div className="pt-2 flex flex-wrap justify-center gap-1.5 font-mono text-[10px]">
+            {/* Metric counters */}
+            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#2D2D2E] font-mono text-xs">
+              <div className="bg-[#141415] p-2.5 rounded-xl border border-[#2D2D2E]">
+                <span className="text-[10px] text-[#8E9192] block uppercase">Agenda</span>
+                <span className="text-base font-bold text-white">{bookmarkedCount} Saved</span>
+              </div>
+              <div className="bg-[#141415] p-2.5 rounded-xl border border-[#2D2D2E]">
+                <span className="text-[10px] text-[#8E9192] block uppercase">Network</span>
+                <span className="text-base font-bold text-[#F6F930]">{connectionsCount} Peers</span>
+              </div>
+            </div>
+
+            <div className="pt-1 flex flex-wrap justify-center gap-1.5 font-mono text-[10px]">
               <span className="px-2.5 py-1 rounded bg-[#201F20] border border-[#2D2D2E] text-[#C4C7C8]">
                 ID: {user.id}
               </span>
@@ -115,7 +151,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleRoleToggle('VIP ACCESS')}
-                  className={`py-1.5 rounded-lg font-mono text-[10px] font-bold uppercase transition-all ${
+                  className={`py-1.5 rounded-lg font-mono text-[10px] font-bold uppercase transition-all cursor-pointer ${
                     user.passType === 'VIP ACCESS'
                       ? 'bg-[#F6F930] text-[#0F0F10]'
                       : 'bg-[#201F20] text-[#8E9192] hover:text-white'
@@ -126,7 +162,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleRoleToggle('SPEAKER')}
-                  className={`py-1.5 rounded-lg font-mono text-[10px] font-bold uppercase transition-all ${
+                  className={`py-1.5 rounded-lg font-mono text-[10px] font-bold uppercase transition-all cursor-pointer ${
                     user.passType === 'SPEAKER'
                       ? 'bg-[#F6F930] text-[#0F0F10]'
                       : 'bg-[#201F20] text-[#8E9192] hover:text-white'
@@ -137,7 +173,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <button
                   type="button"
                   onClick={() => handleRoleToggle('GENERAL')}
-                  className={`py-1.5 rounded-lg font-mono text-[10px] font-bold uppercase transition-all ${
+                  className={`py-1.5 rounded-lg font-mono text-[10px] font-bold uppercase transition-all cursor-pointer ${
                     user.passType === 'GENERAL'
                       ? 'bg-white text-[#0F0F10]'
                       : 'bg-[#201F20] text-[#8E9192] hover:text-white'
@@ -154,13 +190,50 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   sound.playClick();
                   exportContactVCard(user);
                 }}
-                className="w-full py-2.5 bg-[#201F20] hover:bg-[#2A2A2B] text-white border border-[#2D2D2E] rounded-xl font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors"
+                className="w-full py-2.5 bg-[#201F20] hover:bg-[#2A2A2B] text-white border border-[#2D2D2E] rounded-xl font-mono text-xs uppercase tracking-wider flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[16px]">download</span>
-                Export My vCard
+                Export My vCard (.vcf)
               </button>
             </div>
           </div>
+
+          {/* Quick Demo Accounts Switcher */}
+          {allAccounts.length > 1 && onSwitchAccount && (
+            <div className="bg-[#1A1A1B] rounded-2xl p-4 border border-[#2D2D2E] space-y-3">
+              <span className="font-mono text-[10px] text-[#F6F930] uppercase tracking-wider block font-bold">
+                FAST PERSONA SWITCHER
+              </span>
+              <div className="space-y-1.5">
+                {allAccounts.map((acc) => (
+                  <button
+                    key={acc.user.id}
+                    onClick={() => {
+                      sound.playClick();
+                      onSwitchAccount(acc);
+                    }}
+                    className={`w-full p-2 rounded-xl flex items-center justify-between gap-2 text-left transition-colors font-mono text-xs cursor-pointer ${
+                      acc.user.id === user.id
+                        ? 'bg-[#201F20] border border-[#F6F930]/40 text-white font-bold'
+                        : 'hover:bg-[#201F20] text-[#C4C7C8]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <img
+                        src={acc.user.avatar}
+                        alt={acc.user.name}
+                        className="w-6 h-6 rounded-lg object-cover"
+                      />
+                      <span className="truncate">{acc.user.name}</span>
+                    </div>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#141415] text-[#8E9192]">
+                      {acc.user.passType.split(' ')[0]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Organizer Console Quick Access */}
           <div className="bg-[#1A1A1B] rounded-2xl p-5 border border-[#2D2D2E] space-y-3">
@@ -180,7 +253,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
             <button
               onClick={onNavigateToConsole}
-              className="w-full py-2.5 bg-[#201F20] hover:bg-[#F6F930] hover:text-[#0F0F10] text-[#F6F930] border border-[#F6F930]/30 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-[#201F20] hover:bg-[#F6F930] hover:text-[#0F0F10] text-[#F6F930] border border-[#F6F930]/30 rounded-xl font-mono text-xs font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-2 cursor-pointer"
             >
               Open Staff Console
             </button>
@@ -194,7 +267,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <button
               type="button"
               onClick={() => setIsEditing(!isEditing)}
-              className="font-mono text-xs text-[#F6F930] hover:underline uppercase"
+              className="font-mono text-xs text-[#F6F930] hover:underline uppercase cursor-pointer"
             >
               {isEditing ? 'Cancel' : 'Edit Info'}
             </button>
@@ -303,19 +376,44 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEditing(false)}
-                  className="px-5 py-2.5 rounded-xl bg-[#201F20] text-[#C4C7C8] font-mono text-xs uppercase"
+                  className="px-5 py-2.5 rounded-xl bg-[#201F20] text-[#C4C7C8] font-mono text-xs uppercase cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-[#F6F930] text-[#0F0F10] font-mono text-xs font-bold uppercase hover:bg-white transition-colors"
+                  className="px-6 py-2.5 rounded-xl bg-[#F6F930] text-[#0F0F10] font-mono text-xs font-bold uppercase hover:bg-white transition-colors cursor-pointer"
                 >
                   Save Changes
                 </button>
               </div>
             )}
           </form>
+
+          {/* Account Actions Section */}
+          <div className="pt-6 border-t border-[#2D2D2E] flex flex-col sm:flex-row items-center justify-between gap-3 font-mono text-xs">
+            <div className="flex items-center gap-2 text-[#8E9192]">
+              <span className="material-symbols-outlined text-[16px]">lock</span>
+              <span>Pass bound to {user.email}</span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onOpenAuthModal('register')}
+                className="px-4 py-2 bg-[#201F20] hover:bg-[#2A2A2B] text-white rounded-xl uppercase transition-colors"
+              >
+                Mint Another Pass
+              </button>
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl uppercase transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

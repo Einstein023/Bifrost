@@ -11,10 +11,12 @@ import {
   PEER_DIRECTORY,
   INITIAL_CAPACITIES,
   INITIAL_SCANS,
+  INITIAL_ACCOUNTS,
 } from './data/mockData';
-import { Attendee, Session, AppNotification, ScanRecord, VenueCapacity } from './types';
+import { Attendee, Session, AppNotification, ScanRecord, VenueCapacity, UserAccount } from './types';
 import { TopAppBar } from './components/TopAppBar';
 import { BottomNavBar } from './components/BottomNavBar';
+import { LandingPageView } from './components/LandingPageView';
 import { DashboardView } from './components/DashboardView';
 import { AgendaView } from './components/AgendaView';
 import { NetworkView } from './components/NetworkView';
@@ -26,35 +28,59 @@ import { PeerProfileModal } from './components/PeerProfileModal';
 import { SessionDetailModal } from './components/SessionDetailModal';
 import { NotificationsDrawer } from './components/NotificationsDrawer';
 import { MenuDrawer } from './components/MenuDrawer';
+import { AuthModal } from './components/AuthModal';
+import { FriendProximityToast, FriendAlertData } from './components/FriendProximityToast';
 import { sound } from './utils/audio';
 
 export default function App() {
-  // --- Persistent State ---
-  const [user, setUser] = useState<Attendee>(() => {
-    const saved = localStorage.getItem('bifrost_user');
-    return saved ? JSON.parse(saved) : CURRENT_USER;
+  // --- Accounts Registry ---
+  const [accounts, setAccounts] = useState<UserAccount[]>(() => {
+    const saved = localStorage.getItem('bifrost_accounts');
+    return saved ? JSON.parse(saved) : INITIAL_ACCOUNTS;
   });
 
+  const [activeUserId, setActiveUserId] = useState<string>(() => {
+    const saved = localStorage.getItem('bifrost_active_user_id');
+    return saved || CURRENT_USER.id;
+  });
+
+  // Friend Proximity Toast alert state
+  const [activeProximityAlert, setActiveProximityAlert] = useState<FriendAlertData | null>(null);
+
+  // Current active account
+  const activeAccount =
+    accounts.find((acc) => acc.user.id === activeUserId) || accounts[0] || {
+      user: CURRENT_USER,
+      bookmarkedSessionIds: ['ses-1', 'ses-2', 'ses-6'],
+      connections: PEER_DIRECTORY.slice(0, 2),
+      notifications: INITIAL_NOTIFICATIONS,
+    };
+
+  const user = activeAccount.user;
+
+  // Active user's personalized sessions (with their specific bookmarks)
   const [sessions, setSessions] = useState<Session[]>(() => {
-    const saved = localStorage.getItem('bifrost_sessions');
-    return saved ? JSON.parse(saved) : INITIAL_SESSIONS;
+    return INITIAL_SESSIONS.map((s) => ({
+      ...s,
+      isBookmarked: activeAccount.bookmarkedSessionIds.includes(s.id),
+    }));
   });
 
-  const [notifications, setNotifications] = useState<AppNotification[]>(() => {
-    const saved = localStorage.getItem('bifrost_notifications');
-    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
-  });
+  // Active user's personalized notifications
+  const [notifications, setNotifications] = useState<AppNotification[]>(
+    activeAccount.notifications || INITIAL_NOTIFICATIONS
+  );
 
-  const [connections, setConnections] = useState<Attendee[]>(() => {
-    const saved = localStorage.getItem('bifrost_connections');
-    return saved ? JSON.parse(saved) : PEER_DIRECTORY.slice(0, 3);
-  });
+  // Active user's personalized connections
+  const [connections, setConnections] = useState<Attendee[]>(
+    activeAccount.connections || []
+  );
 
   const [capacities, setCapacities] = useState<VenueCapacity[]>(INITIAL_CAPACITIES);
   const [scanRecords, setScanRecords] = useState<ScanRecord[]>(INITIAL_SCANS);
 
   // --- UI Navigation & Modals ---
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [activeTab, setActiveTab] = useState<string>('landing');
   const [isPassModalOpen, setIsPassModalOpen] = useState(false);
   const [isScannerModalOpen, setIsScannerModalOpen] = useState(false);
   const [scannerMode, setScannerMode] = useState<'peer_swap' | 'staff_checkin'>('peer_swap');
@@ -63,35 +89,82 @@ export default function App() {
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [selectedPeer, setSelectedPeer] = useState<Attendee | null>(null);
 
-  // Save changes to local storage
+  // Auth Modal state
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'signin' | 'register'>('register');
+  const [authModalPassType, setAuthModalPassType] = useState<Attendee['passType']>('VIP ACCESS');
+
+  // Save accounts and active user to localStorage
   useEffect(() => {
-    localStorage.setItem('bifrost_user', JSON.stringify(user));
-  }, [user]);
+    localStorage.setItem('bifrost_accounts', JSON.stringify(accounts));
+  }, [accounts]);
 
   useEffect(() => {
-    localStorage.setItem('bifrost_sessions', JSON.stringify(sessions));
-  }, [sessions]);
+    localStorage.setItem('bifrost_active_user_id', activeUserId);
+  }, [activeUserId]);
 
+  // When switching activeUserId or accounts change, synchronize active session bookmarks & network
   useEffect(() => {
-    localStorage.setItem('bifrost_notifications', JSON.stringify(notifications));
-  }, [notifications]);
-
-  useEffect(() => {
-    localStorage.setItem('bifrost_connections', JSON.stringify(connections));
-  }, [connections]);
+    const currentAcc = accounts.find((acc) => acc.user.id === activeUserId);
+    if (currentAcc) {
+      setSessions(
+        INITIAL_SESSIONS.map((s) => ({
+          ...s,
+          isBookmarked: currentAcc.bookmarkedSessionIds.includes(s.id),
+        }))
+      );
+      setNotifications(currentAcc.notifications);
+      setConnections(currentAcc.connections);
+    }
+  }, [activeUserId]);
 
   // Unread notifications count
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  // --- Handlers ---
-  const handleToggleBookmark = (sessionId: string) => {
-    setSessions((prev) =>
-      prev.map((s) => (s.id === sessionId ? { ...s, isBookmarked: !s.isBookmarked } : s))
+  // Helper to update active account state and persistent list
+  const updateActiveAccount = (
+    updater: (prevAccount: UserAccount) => UserAccount
+  ) => {
+    setAccounts((prevAccounts) =>
+      prevAccounts.map((acc) => {
+        if (acc.user.id === activeUserId) {
+          return updater(acc);
+        }
+        return acc;
+      })
     );
   };
 
+  // --- Handlers ---
+  const handleToggleBookmark = (sessionId: string) => {
+    sound.playClick();
+    setSessions((prev) =>
+      prev.map((s) => {
+        if (s.id === sessionId) {
+          const nextState = !s.isBookmarked;
+          return { ...s, isBookmarked: nextState };
+        }
+        return s;
+      })
+    );
+
+    updateActiveAccount((acc) => {
+      const isAlready = acc.bookmarkedSessionIds.includes(sessionId);
+      const nextBookmarks = isAlready
+        ? acc.bookmarkedSessionIds.filter((id) => id !== sessionId)
+        : [...acc.bookmarkedSessionIds, sessionId];
+      return { ...acc, bookmarkedSessionIds: nextBookmarks };
+    });
+  };
+
+  const handleUpdateUser = (updatedUser: Attendee) => {
+    updateActiveAccount((acc) => ({ ...acc, user: updatedUser }));
+  };
+
   const handleMarkAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    const updated = notifications.map((n) => ({ ...n, isRead: true }));
+    setNotifications(updated);
+    updateActiveAccount((acc) => ({ ...acc, notifications: updated }));
   };
 
   const handleAcceptConnection = (notifId: string, sender?: AppNotification['sender']) => {
@@ -115,19 +188,25 @@ export default function App() {
 
       setConnections((prev) => {
         if (prev.some((p) => p.id === newPeer.id)) return prev;
-        return [newPeer, ...prev];
+        const next = [newPeer, ...prev];
+        updateActiveAccount((acc) => ({ ...acc, connections: next }));
+        return next;
       });
     }
 
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notifId ? { ...n, isRead: true } : n))
+    const updatedNotifs = notifications.map((n) =>
+      n.id === notifId ? { ...n, isRead: true } : n
     );
+    setNotifications(updatedNotifs);
+    updateActiveAccount((acc) => ({ ...acc, notifications: updatedNotifs }));
   };
 
   const handleIgnoreConnection = (notifId: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === notifId ? { ...n, isRead: true } : n))
+    const updated = notifications.map((n) =>
+      n.id === notifId ? { ...n, isRead: true } : n
     );
+    setNotifications(updated);
+    updateActiveAccount((acc) => ({ ...acc, notifications: updated }));
   };
 
   const handleBroadcastTestAlert = () => {
@@ -165,18 +244,184 @@ export default function App() {
       isRead: false,
     };
 
-    setNotifications((prev) => [newNotif, ...prev]);
+    const nextNotifs = [newNotif, ...notifications];
+    setNotifications(nextNotifs);
+    updateActiveAccount((acc) => ({ ...acc, notifications: nextNotifs }));
+  };
+
+  // Friend Proximity Alert Trigger
+  const handleTriggerProximityAlert = (
+    type: 'same_room' | 'venue_arrival' | 'wave_received',
+    friend: Attendee
+  ) => {
+    const isSameRoom = type === 'same_room';
+    const isWave = type === 'wave_received';
+
+    if (isWave) {
+      sound.playWave();
+    } else {
+      sound.playFriendNearby();
+    }
+
+    const roomName = friend.currentRoom || user.currentRoom || 'Main Stage';
+
+    const newAlert: FriendAlertData = {
+      id: `alert-${Date.now()}`,
+      type,
+      friend,
+      roomName,
+      customMessage: isSameRoom
+        ? `${friend.name} is in ${roomName} right now! You are both attending this session.`
+        : isWave
+        ? `${friend.name} just waved to you from ${roomName}!`
+        : `${friend.name} just checked into the summit (${roomName}).`,
+    };
+
+    setActiveProximityAlert(newAlert);
+
+    // Also record in notifications
+    const newNotif: AppNotification = {
+      id: `notif-friend-${Date.now()}`,
+      title: isSameRoom
+        ? `Friend in Same Room: ${friend.name}`
+        : isWave
+        ? `${friend.name} Waved to You!`
+        : `Friend Arrived: ${friend.name}`,
+      message: isSameRoom
+        ? `${friend.name} (${friend.company}) is sitting in ${roomName} right now.`
+        : isWave
+        ? `${friend.name} sent you a wave from ${roomName}.`
+        : `${friend.name} has checked into the conference venue.`,
+      type: isSameRoom ? 'friend_same_room' : isWave ? 'peer_wave' : 'friend_arrival',
+      timestamp: new Date().toISOString(),
+      timeAgo: 'JUST NOW',
+      isRead: false,
+      friendId: friend.id,
+      roomName: roomName,
+      sender: {
+        id: friend.id,
+        name: friend.name,
+        company: friend.company,
+        role: friend.role,
+        avatar: friend.avatar,
+      },
+    };
+
+    const nextNotifs = [newNotif, ...notifications];
+    setNotifications(nextNotifs);
+    updateActiveAccount((acc) => ({ ...acc, notifications: nextNotifs }));
+  };
+
+  const handleSendFriendRequest = (peer: Attendee) => {
+    sound.playSuccess();
+    updateActiveAccount((acc) => {
+      const pendingSent = acc.pendingSentRequests || [];
+      if (pendingSent.some((p) => p.id === peer.id)) return acc;
+      return {
+        ...acc,
+        pendingSentRequests: [...pendingSent, peer],
+      };
+    });
+
+    const sentNotif: AppNotification = {
+      id: `notif-sent-${Date.now()}`,
+      title: `Friend Request Sent`,
+      message: `Friend request sent to ${peer.name} (${peer.company}).`,
+      type: 'info',
+      timestamp: new Date().toISOString(),
+      timeAgo: 'JUST NOW',
+      isRead: false,
+    };
+    const nextNotifs = [sentNotif, ...notifications];
+    setNotifications(nextNotifs);
+    updateActiveAccount((acc) => ({ ...acc, notifications: nextNotifs }));
+
+    // Auto-accept simulation after 2.5s for seamless interactive experience
+    setTimeout(() => {
+      sound.playFriendNearby();
+      handleAcceptFriendRequest(peer);
+      setActiveProximityAlert({
+        id: `alert-accepted-${Date.now()}`,
+        type: 'same_room',
+        friend: peer,
+        roomName: peer.currentRoom || 'Main Stage',
+        customMessage: `${peer.name} accepted your friend request! You're now connected.`,
+      });
+    }, 2500);
+  };
+
+  const handleAcceptFriendRequest = (peer: Attendee) => {
+    sound.playSuccess();
+    const updatedPeer: Attendee = {
+      ...peer,
+      isFriend: true,
+      friendStatus: 'accepted',
+      connectedAt: 'Just now',
+    };
+
+    setConnections((prev) => {
+      if (prev.some((p) => p.id === peer.id)) {
+        return prev.map((p) => (p.id === peer.id ? updatedPeer : p));
+      }
+      return [updatedPeer, ...prev];
+    });
+
+    updateActiveAccount((acc) => {
+      const filteredReceived = (acc.pendingReceivedRequests || []).filter((p) => p.id !== peer.id);
+      const filteredSent = (acc.pendingSentRequests || []).filter((p) => p.id !== peer.id);
+      const exists = acc.connections.some((c) => c.id === peer.id);
+      const newConnections = exists
+        ? acc.connections.map((c) => (c.id === peer.id ? updatedPeer : c))
+        : [updatedPeer, ...acc.connections];
+
+      return {
+        ...acc,
+        connections: newConnections,
+        pendingReceivedRequests: filteredReceived,
+        pendingSentRequests: filteredSent,
+      };
+    });
+
+    const acceptedNotif: AppNotification = {
+      id: `notif-conn-${Date.now()}`,
+      title: `New Conference Friend!`,
+      message: `You are now connected with ${peer.name} (${peer.company}). Proximity alerts enabled.`,
+      type: 'friend_request',
+      timestamp: new Date().toISOString(),
+      timeAgo: 'JUST NOW',
+      isRead: false,
+      sender: {
+        id: peer.id,
+        name: peer.name,
+        company: peer.company,
+        role: peer.role,
+        avatar: peer.avatar,
+      },
+    };
+    const nextNotifs = [acceptedNotif, ...notifications];
+    setNotifications(nextNotifs);
+    updateActiveAccount((acc) => ({ ...acc, notifications: nextNotifs }));
+  };
+
+  const handleDeclineFriendRequest = (peerId: string) => {
+    sound.playClick();
+    updateActiveAccount((acc) => ({
+      ...acc,
+      pendingReceivedRequests: (acc.pendingReceivedRequests || []).filter((p) => p.id !== peerId),
+    }));
   };
 
   const handleScanSuccess = (scannedAttendee: Attendee) => {
     setIsScannerModalOpen(false);
     setSelectedPeer(scannedAttendee);
 
-    // If in peer swap mode, also add to network if not already present
+    // If in peer swap mode, add to network if not already present
     if (scannerMode === 'peer_swap') {
       setConnections((prev) => {
         if (prev.some((p) => p.id === scannedAttendee.id)) return prev;
-        return [{ ...scannedAttendee, connectedAt: 'Just now' }, ...prev];
+        const next = [{ ...scannedAttendee, connectedAt: 'Just now' }, ...prev];
+        updateActiveAccount((acc) => ({ ...acc, connections: next }));
+        return next;
       });
     }
   };
@@ -207,9 +452,12 @@ export default function App() {
   };
 
   const handleUpdatePeerNotes = (peerId: string, notes: string) => {
-    setConnections((prev) =>
-      prev.map((c) => (c.id === peerId ? { ...c, notes } : c))
+    const nextConnections = connections.map((c) =>
+      c.id === peerId ? { ...c, notes } : c
     );
+    setConnections(nextConnections);
+    updateActiveAccount((acc) => ({ ...acc, connections: nextConnections }));
+
     if (selectedPeer && selectedPeer.id === peerId) {
       setSelectedPeer({ ...selectedPeer, notes });
     }
@@ -217,11 +465,14 @@ export default function App() {
 
   const handleToggleSaveConnection = (peer: Attendee) => {
     const isAlreadySaved = connections.some((c) => c.id === peer.id);
+    let next: Attendee[];
     if (isAlreadySaved) {
-      setConnections((prev) => prev.filter((c) => c.id !== peer.id));
+      next = connections.filter((c) => c.id !== peer.id);
     } else {
-      setConnections((prev) => [{ ...peer, connectedAt: 'Just now' }, ...prev]);
+      next = [{ ...peer, connectedAt: 'Just now' }, ...connections];
     }
+    setConnections(next);
+    updateActiveAccount((acc) => ({ ...acc, connections: next }));
   };
 
   const handleOpenSessionById = (sessionId: string) => {
@@ -229,6 +480,37 @@ export default function App() {
     if (found) {
       setSelectedSession(found);
     }
+  };
+
+  // Auth flow triggers
+  const handleOpenAuthModal = (mode: 'signin' | 'register', passType?: Attendee['passType']) => {
+    setAuthModalMode(mode);
+    if (passType) {
+      setAuthModalPassType(passType);
+    }
+    setIsAuthModalOpen(true);
+  };
+
+  const handleAuthSuccess = (newOrExistingAccount: UserAccount) => {
+    setAccounts((prev) => {
+      const exists = prev.some((a) => a.user.id === newOrExistingAccount.user.id);
+      if (exists) {
+        return prev.map((a) => (a.user.id === newOrExistingAccount.user.id ? newOrExistingAccount : a));
+      }
+      return [newOrExistingAccount, ...prev];
+    });
+
+    setActiveUserId(newOrExistingAccount.user.id);
+    setActiveTab('dashboard');
+  };
+
+  const handleSignOut = () => {
+    sound.playClick();
+    setActiveTab('landing');
+  };
+
+  const handleSwitchAccount = (acc: UserAccount) => {
+    setActiveUserId(acc.user.id);
   };
 
   return (
@@ -243,16 +525,45 @@ export default function App() {
         onToggleConsole={() => setActiveTab(activeTab === 'console' ? 'dashboard' : 'console')}
         isConsoleMode={activeTab === 'console'}
         onOpenMenuDrawer={() => setIsMenuDrawerOpen(true)}
+        currentUser={user}
+        onOpenAuthModal={handleOpenAuthModal}
+        onSignOut={handleSignOut}
+      />
+
+      {/* Friend Proximity & Same-Room Real-time Alert Toast */}
+      <FriendProximityToast
+        alert={activeProximityAlert}
+        onDismiss={() => setActiveProximityAlert(null)}
+        onOpenNetwork={() => setActiveTab('network')}
+        onOpenPeerProfile={(peer) => setSelectedPeer(peer)}
       />
 
       {/* Main Content View Switcher */}
       <main className="flex-1 w-full relative z-10">
+        {activeTab === 'landing' && (
+          <LandingPageView
+            onOpenAuthModal={handleOpenAuthModal}
+            onExploreAgenda={() => setActiveTab('agenda')}
+            onExploreNetwork={() => setActiveTab('network')}
+            onEnterConsole={() => setActiveTab('console')}
+            currentUser={user}
+            onLaunchDashboard={() => setActiveTab('dashboard')}
+            sessions={sessions}
+            onOpenSession={(session) => setSelectedSession(session)}
+            allAttendees={PEER_DIRECTORY}
+            onTriggerProximityAlert={handleTriggerProximityAlert}
+            onSendFriendRequest={handleSendFriendRequest}
+          />
+        )}
+
         {activeTab === 'dashboard' && (
           <DashboardView
             user={user}
             sessions={sessions}
+            connections={connections}
             onOpenSession={(session) => setSelectedSession(session)}
             onNavigateToSchedule={() => setActiveTab('agenda')}
+            onNavigateToNetwork={() => setActiveTab('network')}
             onOpenPassModal={() => setIsPassModalOpen(true)}
             onOpenScanner={() => {
               setScannerMode('peer_swap');
@@ -274,24 +585,39 @@ export default function App() {
           <NetworkView
             user={user}
             connections={connections}
+            allAttendees={PEER_DIRECTORY}
+            pendingReceived={activeAccount.pendingReceivedRequests || []}
+            pendingSent={activeAccount.pendingSentRequests || []}
             onOpenScanner={() => {
               setScannerMode('peer_swap');
               setIsScannerModalOpen(true);
             }}
             onOpenPeerProfile={(peer) => setSelectedPeer(peer)}
             onUpdatePeerNotes={handleUpdatePeerNotes}
-            onRemoveConnection={(id) =>
-              setConnections((prev) => prev.filter((c) => c.id !== id))
-            }
+            onRemoveConnection={(id) => {
+              const next = connections.filter((c) => c.id !== id);
+              setConnections(next);
+              updateActiveAccount((acc) => ({ ...acc, connections: next }));
+            }}
+            onSendFriendRequest={handleSendFriendRequest}
+            onAcceptFriendRequest={handleAcceptFriendRequest}
+            onDeclineFriendRequest={handleDeclineFriendRequest}
+            onTriggerProximityAlert={handleTriggerProximityAlert}
           />
         )}
 
         {activeTab === 'profile' && (
           <ProfileView
             user={user}
-            onUpdateUser={setUser}
+            onUpdateUser={handleUpdateUser}
             onOpenPassModal={() => setIsPassModalOpen(true)}
             onNavigateToConsole={() => setActiveTab('console')}
+            onOpenAuthModal={handleOpenAuthModal}
+            onSignOut={handleSignOut}
+            allAccounts={accounts}
+            onSwitchAccount={handleSwitchAccount}
+            bookmarkedCount={sessions.filter((s) => s.isBookmarked).length}
+            connectionsCount={connections.length}
           />
         )}
 
@@ -322,6 +648,16 @@ export default function App() {
 
       {/* Mobile Bottom Navigation Bar */}
       <BottomNavBar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+      {/* Auth & Registration Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onAuthSuccess={handleAuthSuccess}
+        initialMode={authModalMode}
+        initialPassType={authModalPassType}
+        existingAccounts={accounts}
+      />
 
       {/* Digital Pass Modal (High Contrast Fullscreen) */}
       <PassModal
@@ -378,6 +714,9 @@ export default function App() {
         onClose={() => setIsMenuDrawerOpen(false)}
         onNavigate={setActiveTab}
         onOpenPass={() => setIsPassModalOpen(true)}
+        currentUser={user}
+        onOpenAuthModal={handleOpenAuthModal}
+        onSignOut={handleSignOut}
       />
     </div>
   );
